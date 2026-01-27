@@ -1,0 +1,17 @@
+# data
+datasets/
+*.csv
+*.parquet
+
+# env
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# logs
+logs/
+*.log
