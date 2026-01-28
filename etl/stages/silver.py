@@ -10,7 +10,7 @@ from typing import List
 
 from ..checks.sql_generators import build_fail_if_zero_sql, build_row_counts_sql
 from ..pipeline import QueryStep, SqlFileStep, Step
-from ..runners import DockerSqlCmdRunner
+from ..runners import SqlCmdRunner
 
 SILVER_TABLES: tuple[str, ...] = (
     "silver.crm_cust_info",
@@ -24,7 +24,7 @@ SILVER_TABLES: tuple[str, ...] = (
 SILVER_ERROR_BASE = 51001
 
 
-def build_silver_steps(runner: DockerSqlCmdRunner, database: str) -> List[Step]:
+def build_silver_steps(runner: SqlCmdRunner, database: str) -> List[Step]:
     """Build pipeline steps for the Silver stage.
 
     Args:

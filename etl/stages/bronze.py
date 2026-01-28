@@ -10,7 +10,7 @@ from typing import List
 
 from ..checks.sql_generators import build_fail_if_zero_sql, build_row_counts_sql
 from ..pipeline import QueryStep, SqlFileStep, Step
-from ..runners import DockerSqlCmdRunner
+from ..runners import SqlCmdRunner
 
 BRONZE_TABLES: tuple[str, ...] = (
     "bronze.crm_cust_info",
@@ -22,7 +22,7 @@ BRONZE_TABLES: tuple[str, ...] = (
 )
 
 
-def build_bronze_steps(runner: DockerSqlCmdRunner, database: str) -> List[Step]:
+def build_bronze_steps(runner: SqlCmdRunner, database: str) -> List[Step]:
     """Build pipeline steps for the Bronze stage.
 
     Args:

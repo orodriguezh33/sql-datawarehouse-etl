@@ -10,7 +10,7 @@ from typing import List
 
 from ..checks.sql_generators import build_fail_if_zero_sql, build_row_counts_sql
 from ..pipeline import QueryStep, SqlFileStep, Step
-from ..runners import DockerSqlCmdRunner
+from ..runners import SqlCmdRunner
 
 GOLD_VIEWS: tuple[str, ...] = (
     "gold.dim_customers",
@@ -21,7 +21,7 @@ GOLD_VIEWS: tuple[str, ...] = (
 GOLD_ERROR_BASE = 52001
 
 
-def build_gold_steps(runner: DockerSqlCmdRunner, database: str) -> List[Step]:
+def build_gold_steps(runner: SqlCmdRunner, database: str) -> List[Step]:
     """Build pipeline steps for the Gold stage.
 
     Notes:

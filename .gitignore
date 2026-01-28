@@ -1,5 +1,4 @@
 # data
-datasets/
 *.csv
 *.parquet
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Protocol
 
-from .runners import DockerSqlCmdRunner
+from .runners import SqlCmdRunner
 
 
 class Step(Protocol):
@@ -30,7 +30,7 @@ class SqlFileStep:
     """Pipeline step that executes a SQL file using the provided runner."""
 
     name: str
-    runner: DockerSqlCmdRunner
+    runner: SqlCmdRunner
     relative_path: str
     database: str
 
@@ -44,7 +44,7 @@ class QueryStep:
     """Pipeline step that executes a raw SQL query using the provided runner."""
 
     name: str
-    runner: DockerSqlCmdRunner
+    runner: SqlCmdRunner
     query: str
     database: str
 

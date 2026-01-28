@@ -2,7 +2,7 @@
 
 from etl.config import SqlServerSettings
 from etl.pipeline import EtlPipeline, SqlFileStep
-from etl.runners import DockerSqlCmdRunner
+from etl.runners import SqlCmdRunner
 from etl.stages.bronze import build_bronze_steps
 from etl.stages.gold import build_gold_steps
 from etl.stages.silver import build_silver_steps
@@ -11,7 +11,7 @@ DATA_WAREHOUSE_DB = "DataWarehouse"
 MASTER_DB = "master"
 
 
-def build_pipeline(runner: DockerSqlCmdRunner) -> EtlPipeline:
+def build_pipeline(runner: SqlCmdRunner) -> EtlPipeline:
     """Build the ETL pipeline steps in execution order.
 
     Args:
@@ -38,7 +38,7 @@ def build_pipeline(runner: DockerSqlCmdRunner) -> EtlPipeline:
 def main() -> None:
     """Load settings, create the SQL runner, and execute the ETL pipeline."""
     settings = SqlServerSettings.from_env()
-    runner = DockerSqlCmdRunner(settings)
+    runner = SqlCmdRunner(settings)
 
     pipeline = build_pipeline(runner)
     pipeline.run()
