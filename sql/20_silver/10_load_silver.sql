@@ -19,7 +19,8 @@ Usage Example:
     EXEC silver.load_silver;
 ===============================================================================
 */
-
+USE DataWarehouse;
+GO
 CREATE OR ALTER PROCEDURE silver.load_silver
 AS
 BEGIN
@@ -170,25 +171,15 @@ BEGIN
             s.sls_prd_key,
             s.sls_cust_id,
 
-            CASE
-                WHEN s.sls_order_dt = 0 OR LEN(s.sls_order_dt) <> 8 THEN NULL
-                ELSE CAST(CAST(s.sls_order_dt AS VARCHAR(8)) AS DATE)
-            END AS sls_order_dt,
-
-            CASE
-                WHEN s.sls_ship_dt = 0 OR LEN(s.sls_ship_dt) <> 8 THEN NULL
-                ELSE CAST(CAST(s.sls_ship_dt AS VARCHAR(8)) AS DATE)
-            END AS sls_ship_dt,
-
-            CASE
-                WHEN s.sls_due_dt = 0 OR LEN(s.sls_due_dt) <> 8 THEN NULL
-                ELSE CAST(CAST(s.sls_due_dt AS VARCHAR(8)) AS DATE)
-            END AS sls_due_dt,
+            -- Dates: robust parsing from INT YYYYMMDD (e.g., 20260128)
+            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_order_dt, 0)), 112) AS sls_order_dt,
+            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_ship_dt, 0)), 112)  AS sls_ship_dt,
+            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_due_dt, 0)), 112)   AS sls_due_dt,
 
             CASE
                 WHEN s.sls_sales IS NULL
-                  OR s.sls_sales <= 0
-                  OR s.sls_sales <> s.sls_quantity * ABS(s.sls_price)
+                OR s.sls_sales <= 0
+                OR s.sls_sales <> s.sls_quantity * ABS(s.sls_price)
                 THEN s.sls_quantity * ABS(s.sls_price)
                 ELSE s.sls_sales
             END AS sls_sales,
@@ -197,10 +188,19 @@ BEGIN
 
             CASE
                 WHEN s.sls_price IS NULL OR s.sls_price <= 0
-                THEN (s.sls_sales / NULLIF(s.sls_quantity, 0))
+                THEN (
+                    CASE
+                        WHEN s.sls_sales IS NULL
+                        OR s.sls_sales <= 0
+                        OR s.sls_sales <> s.sls_quantity * ABS(s.sls_price)
+                        THEN (s.sls_quantity * ABS(s.sls_price)) / NULLIF(s.sls_quantity, 0)
+                        ELSE s.sls_sales / NULLIF(s.sls_quantity, 0)
+                    END
+                )
                 ELSE s.sls_price
             END AS sls_price
         FROM bronze.crm_sales_details s;
+
 
         SET @end_time = GETDATE();
         PRINT '>> Load Duration: ' + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR(20)) + ' seconds';
@@ -355,7 +355,7 @@ BEGIN
         PRINT '==========================================';
 
         -- Optional: rethrow to fail pipeline hard
-        -- THROW;
+        THROW;
     END CATCH
 END;
 GO
