@@ -1,17 +1,25 @@
-
 /*
 ===============================================================================
 DDL Script: Create Bronze Tables
 ===============================================================================
-Script Purpose:
-    This script creates tables in the 'bronze' schema, dropping existing tables 
-    if they already exist.
-	  Run this script to re-define the DDL structure of 'bronze' Tables
+Purpose:
+    Create all tables for the Bronze layer.
+    Existing tables are dropped and recreated to reflect the raw source schemas.
+
+Notes:
+    - This script is destructive (DROP + CREATE).
+    - Bronze tables store raw data with minimal typing and no constraints.
+    - Run this script when redefining the Bronze DDL structure.
 ===============================================================================
 */
+
+-- Switch context to the Data Warehouse database
 USE DataWarehouse;
 GO
 
+-- =============================================================================
+-- CRM: Customer Information
+-- =============================================================================
 IF OBJECT_ID('bronze.crm_cust_info', 'U') IS NOT NULL
     DROP TABLE bronze.crm_cust_info;
 GO
@@ -27,6 +35,9 @@ CREATE TABLE bronze.crm_cust_info (
 );
 GO
 
+-- =============================================================================
+-- CRM: Product Information
+-- =============================================================================
 IF OBJECT_ID('bronze.crm_prd_info', 'U') IS NOT NULL
     DROP TABLE bronze.crm_prd_info;
 GO
@@ -42,6 +53,9 @@ CREATE TABLE bronze.crm_prd_info (
 );
 GO
 
+-- =============================================================================
+-- CRM: Sales Details
+-- =============================================================================
 IF OBJECT_ID('bronze.crm_sales_details', 'U') IS NOT NULL
     DROP TABLE bronze.crm_sales_details;
 GO
@@ -50,15 +64,18 @@ CREATE TABLE bronze.crm_sales_details (
     sls_ord_num  NVARCHAR(50),
     sls_prd_key  NVARCHAR(50),
     sls_cust_id  INT,
-    sls_order_dt INT,
-    sls_ship_dt  INT,
-    sls_due_dt   INT,
+    sls_order_dt INT,   -- Raw date (YYYYMMDD)
+    sls_ship_dt  INT,   -- Raw date (YYYYMMDD)
+    sls_due_dt   INT,   -- Raw date (YYYYMMDD)
     sls_sales    INT,
     sls_quantity INT,
     sls_price    INT
 );
 GO
 
+-- =============================================================================
+-- ERP: Location Information
+-- =============================================================================
 IF OBJECT_ID('bronze.erp_loc_a101', 'U') IS NOT NULL
     DROP TABLE bronze.erp_loc_a101;
 GO
@@ -69,6 +86,9 @@ CREATE TABLE bronze.erp_loc_a101 (
 );
 GO
 
+-- =============================================================================
+-- ERP: Customer Attributes
+-- =============================================================================
 IF OBJECT_ID('bronze.erp_cust_az12', 'U') IS NOT NULL
     DROP TABLE bronze.erp_cust_az12;
 GO
@@ -80,6 +100,9 @@ CREATE TABLE bronze.erp_cust_az12 (
 );
 GO
 
+-- =============================================================================
+-- ERP: Product Categories
+-- =============================================================================
 IF OBJECT_ID('bronze.erp_px_cat_g1v2', 'U') IS NOT NULL
     DROP TABLE bronze.erp_px_cat_g1v2;
 GO
@@ -91,4 +114,3 @@ CREATE TABLE bronze.erp_px_cat_g1v2 (
     maintenance  NVARCHAR(50)
 );
 GO
-
