@@ -28,8 +28,8 @@ Transforms CSV data (CRM + ERP sources) through Bronze → Silver → Gold layer
 ## Quick Start
 
 ```bash
-git clone [your-repo-url]
-cd sql-datawarehouse-etl
+git clone https://github.com/orodriguezh33/sql-dwh-etl.git
+cd sql-dwh-etl
 docker compose up --build
 ```
 
