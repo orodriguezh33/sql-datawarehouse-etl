@@ -17,10 +17,12 @@ from .runners import DockerSqlCmdRunner
 class Step(Protocol):
     """A minimal contract for pipeline steps."""
 
-    name: str
+    @property
+    def name(self) -> str: ...
 
-    def run(self) -> None:
-        """Execute the step."""
+    def run(self) -> None: ...
+
+    """Execute the step."""
 
 
 @dataclass(frozen=True)
