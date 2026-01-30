@@ -147,14 +147,43 @@ BEGIN
         PRINT '>> -------------';
 
 
-        /* -----------------------------
-           silver.crm_sales_details
-        ----------------------------- */
+        /* ------------------------------------------------------------------
+           Table Transformation: silver.crm_sales_details
+           ------------------------------------------------------------------ */
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.crm_sales_details';
         TRUNCATE TABLE silver.crm_sales_details;
 
         PRINT '>> Inserting Data Into: silver.crm_sales_details';
+        
+        -- CTE to handle initial data parsing and validation
+        WITH CleanedSales AS (
+            SELECT
+                s.sls_ord_num,
+                s.sls_prd_key,
+                s.sls_cust_id,
+                -- Validate YYYYMMDD format (8 digits) before converting to DATE
+                -- This filters out noise or corrupted numerical values
+                CASE 
+                    WHEN LEN(CAST(s.sls_order_dt AS VARCHAR)) = 8 
+                    THEN TRY_CONVERT(DATE, CAST(s.sls_order_dt AS VARCHAR), 112) 
+                    ELSE NULL 
+                END AS raw_order_dt,
+                CASE 
+                    WHEN LEN(CAST(s.sls_ship_dt AS VARCHAR)) = 8 
+                    THEN TRY_CONVERT(DATE, CAST(s.sls_ship_dt AS VARCHAR), 112) 
+                    ELSE NULL 
+                END AS raw_ship_dt,
+                CASE 
+                    WHEN LEN(CAST(s.sls_due_dt AS VARCHAR)) = 8 
+                    THEN TRY_CONVERT(DATE, CAST(s.sls_due_dt AS VARCHAR), 112) 
+                    ELSE NULL 
+                END AS raw_due_dt,
+                s.sls_sales,
+                s.sls_quantity,
+                s.sls_price
+            FROM bronze.crm_sales_details s
+        )
         INSERT INTO silver.crm_sales_details (
             sls_ord_num,
             sls_prd_key,
@@ -166,41 +195,31 @@ BEGIN
             sls_quantity,
             sls_price
         )
-        SELECT
-            s.sls_ord_num,
-            s.sls_prd_key,
-            s.sls_cust_id,
-
-            -- Dates: robust parsing from INT YYYYMMDD (e.g., 20260128)
-            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_order_dt, 0)), 112) AS sls_order_dt,
-            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_ship_dt, 0)), 112)  AS sls_ship_dt,
-            TRY_CONVERT(DATE, CONVERT(CHAR(8), NULLIF(s.sls_due_dt, 0)), 112)   AS sls_due_dt,
-
-            CASE
-                WHEN s.sls_sales IS NULL
-                OR s.sls_sales <= 0
-                OR s.sls_sales <> s.sls_quantity * ABS(s.sls_price)
-                THEN s.sls_quantity * ABS(s.sls_price)
-                ELSE s.sls_sales
+        SELECT 
+            sls_ord_num,
+            sls_prd_key,
+            sls_cust_id,
+            -- Data Imputation: If a date is NULL (corrupted), inherit the valid date from the same order
+            ISNULL(raw_order_dt, MAX(raw_order_dt) OVER (PARTITION BY sls_ord_num)) AS sls_order_dt,
+            ISNULL(raw_ship_dt, MAX(raw_ship_dt) OVER (PARTITION BY sls_ord_num)) AS sls_ship_dt,
+            ISNULL(raw_due_dt, MAX(raw_due_dt) OVER (PARTITION BY sls_ord_num)) AS sls_due_dt,
+            
+            -- Business Logic: Recalculate sales if value is missing, negative, or inconsistent with (Qty * Price)
+            CASE 
+                WHEN ISNULL(sls_sales, 0) <= 0 OR sls_sales <> (sls_quantity * ABS(sls_price))
+                THEN sls_quantity * ABS(ISNULL(sls_price, 0))
+                ELSE sls_sales
             END AS sls_sales,
-
-            s.sls_quantity,
-
-            CASE
-                WHEN s.sls_price IS NULL OR s.sls_price <= 0
-                THEN (
-                    CASE
-                        WHEN s.sls_sales IS NULL
-                        OR s.sls_sales <= 0
-                        OR s.sls_sales <> s.sls_quantity * ABS(s.sls_price)
-                        THEN (s.sls_quantity * ABS(s.sls_price)) / NULLIF(s.sls_quantity, 0)
-                        ELSE s.sls_sales / NULLIF(s.sls_quantity, 0)
-                    END
-                )
-                ELSE s.sls_price
+            
+            sls_quantity,
+            
+            -- Price Logic: Derive unit price from sales if missing or invalid
+            CASE 
+                WHEN ISNULL(sls_price, 0) <= 0 AND sls_quantity <> 0 
+                THEN ABS(sls_sales) / sls_quantity 
+                ELSE sls_price 
             END AS sls_price
-        FROM bronze.crm_sales_details s;
-
+        FROM CleanedSales;
 
         SET @end_time = GETDATE();
         PRINT '>> Load Duration: ' + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR(20)) + ' seconds';
