@@ -1,215 +1,111 @@
 # SQL Data Warehouse ETL Pipeline
 
-[![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927?logo=microsoftsqlserver)](https://www.microsoft.com/sql-server)
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+My first data engineering project. Took [Data Baraa's SQL tutorial](https://www.youtube.com/@DataWithBaraa) and extended it with Python automation and Docker.
 
-My first data engineering project. Took a SQL tutorial and built a production-ready ETL pipeline with Python orchestration, Docker containerization, and automated validation.
+## What it does
 
----
+Loads CSV files (fake CRM + ERP data) through a Bronze → Silver → Gold pipeline into a star schema.
 
-## What This Is
+**What I added to the tutorial:**
+- Python orchestration instead of manual SQL execution
+- Docker setup so anyone can run it in 45 seconds
+- Automated validation that fails fast if data is missing
+- Type hints because I kept breaking things during refactoring
 
-Built from [Data Baraa's SQL Data Warehouse tutorial](https://www.youtube.com/@DataWithBaraa). The tutorial teaches SQL and data warehousing in pure SQL - I extended it with a complete Python automation layer.
-
-**What I added:**
-- Protocol-based pipeline orchestration
-- Type-safe execution with Python dataclasses
-- Dynamic SQL validation generators
-- Docker multi-container setup with health checks
-- Fail-fast error handling
-
-Transforms CSV data (CRM + ERP sources) through Bronze → Silver → Gold layers into a star schema ready for BI tools.
-
-**Time investment:** ~3 weeks of learning and iteration
-
----
-
-## Quick Start
-
+## Quick start
 ```bash
 git clone https://github.com/orodriguezh33/sql-dwh-etl.git
 cd sql-dwh-etl
 docker compose up --build
 ```
 
-First run: ~5 min (downloads SQL Server image)  
-Subsequent runs: ~45 seconds
+First run: ~5 min (downloads SQL Server)  
+After that: ~45 seconds
 
-**Pipeline output:**
-```
-▶ Create Schemas
-▶ Create Bronze Tables
-▶ Load Bronze (SQL script)
-▶ Sample bronze.crm_cust_info (TOP 10)
-▶ Bronze row counts
-▶ Fail if any Bronze table is empty
-▶ Create Silver Tables
-▶ Execute silver.load_silver
-▶ Silver row counts
-▶ Fail if any Silver table is empty
-▶ Create Gold Views
-▶ Gold view row counts
-✅ ETL end-to-end executed successfully
-```
-
-**Connect to the database:**
-- Host: `localhost:1433`
-- User: `sa`  
-- Password: (see `.env.example`)
+Connect:
+- `localhost:1433`
+- User: `sa` / Password: see `.env.example`
 - Database: `DataWarehouse`
 
----
-
 ## Architecture
-
 ```
-CSV Files → BRONZE (raw) → SILVER (cleaned) → GOLD (analytics)
+CSV → BRONZE (raw) → SILVER (cleaned) → GOLD (star schema)
 ```
 
-**Bronze:** 6 tables with raw data from CSVs  
-**Silver:** Cleaned and standardized (dates, nulls, types)  
-**Gold:** 3 views in star schema (1 fact + 2 dimensions)
-
-### Data Flow
 ![Data Flow](./imgs/DataFLow.png)
 
-### Star Schema
-![Data Mart](./imgs/DataMart.png)
+**Bronze:** 6 tables, raw CSV data  
+**Silver:** Cleaned dates, nulls, types  
+**Gold:** 1 fact table + 2 dimensions (ready for Power BI)
 
-### Source Systems
-![Data Integration](./imgs/Data%20Integration.png)
-
----
-
-## Project Structure
-
+## Project structure
 ```
-sql-datawarehouse-etl/
-├── datasets/
-│   ├── source_crm/          # 3 CSV files (CRM system)
-│   └── source_erp/          # 3 CSV files (ERP system)
-├── sql/
-│   ├── 00_setup/           # Database & schema DDL
-│   ├── 10_bronze/          # Raw data ingestion
-│   ├── 20_silver/          # Transformations
-│   ├── 30_gold/            # Star schema views
-│   └── test/               # Quality check queries
-├── etl/
-│   ├── pipeline.py         # Orchestration (Protocol-based)
-│   ├── runners.py          # SQL execution (subprocess)
-│   ├── config.py           # Settings from environment
-│   ├── stages/             # Bronze/Silver/Gold steps
-│   └── checks/             # SQL validation generators
-├── docker-compose.yml
-├── Dockerfile
-└── main.py                 # Entry point
+sql-dwh-etl/
+├── datasets/        # 6 CSV files (CRM + ERP)
+├── sql/            # DDL and transformations
+│   ├── 00_setup/
+│   ├── 10_bronze/
+│   ├── 20_silver/
+│   └── 30_gold/
+├── etl/            # Python orchestration
+│   ├── pipeline.py
+│   ├── runners.py
+│   └── stages/
+└── main.py
 ```
 
----
+## What I learned
 
-## What I Learned
+**Type hints actually matter**  
+Started without them. Added gradually after breaking things 3 times during refactoring. They catch bugs at write-time instead of run-time.
 
-**Python type hints catch bugs before runtime**  
-Started without types, added them gradually. Caught 3 bugs during refactoring that would've been runtime failures. Now I get why production code is heavily typed - it's not just documentation, it's prevention.
+**"Running" ≠ "Ready"**  
+Docker said SQL Server was up, but connections failed for 15 seconds. Added health checks. Learned the hard way that process start ≠ service ready.
 
-**Protocol pattern makes extension easier**  
-First tried abstract base classes for pipeline steps. Protocols are more flexible - I can add new step types (QueryStep, SqlFileStep) without modifying the core EtlPipeline class. Makes the code actually extensible, not just theoretically.
+**Fail fast > fail late**  
+First version would fail 30 seconds in when Gold views had no data. Now it fails in 5 seconds if Bronze tables are empty. Better error messages too.
 
-**Dynamic SQL generation beats copy-paste**  
-Writing validation for 6 Bronze tables meant 6 identical IF statements. Built `build_fail_if_zero_sql()` that generates them programmatically. Changed ~50 lines of SQL to 5 lines of Python. Same pattern works for any number of tables.
+**DRY applies to SQL**  
+Had 6 identical validation queries (one per table). Built a Python function that generates them. 50 lines → 5 lines.
 
-**Immutable dataclasses prevent silent bugs**  
-Used `frozen=True` after accidentally mutating a step config mid-execution (spent an hour debugging). Frozen dataclasses make that impossible - the error surfaces immediately at assignment, not later when data is corrupted.
+## Tech
 
-**Health checks are not optional**  
-Docker says SQL Server is "started" but connections fail for 10-15 seconds. Spent a day debugging this. `service_healthy` condition waits for actual readiness, not just process start. Learned: in distributed systems, "running" ≠ "ready".
+- SQL Server 2022
+- Python 3.12
+- Docker Compose
+- sqlcmd (subprocess calls)
 
-**Fail-fast saves debugging time**  
-First version kept going even when Bronze tables were empty. Would notice problems 30 seconds later in Gold views. Added validation that throws SQL errors immediately (with unique error codes 50001, 50002...). Better to fail in 5 seconds with a clear message than succeed with bad data.
+## Known issues
 
----
+- No retry logic if DB connection is flaky
+- CSV parser breaks on commas inside quoted fields
+- Logs only go to stdout (should write to files)
+- Error messages could be friendlier
 
-## Design Decisions
+## What's from the tutorial vs what I built
 
-**Why Protocols over ABC?**  
-Protocols don't require inheritance. New step types just need a `name` property and `run()` method. Makes the pipeline truly open for extension without coupling to a base class.
+**Tutorial (Data Baraa):**
+- All the SQL logic (transformations, star schema)
+- Table definitions
+- BULK INSERT patterns
 
-**Why frozen dataclasses?**  
-Pipeline steps should be immutable - they represent configuration, not mutable state. `frozen=True` makes bugs impossible instead of requiring discipline.
+**What I added:**
+- Entire Python layer (`etl/` folder)
+- Docker setup with health checks
+- Validation framework
+- Protocol-based architecture (so I can add new step types easily)
 
-**Why generate SQL programmatically?**  
-Validation logic is identical for all tables, only names differ. Generating it means adding tables is trivial and patterns stay consistent.
+## What I'd add next
 
-**Why custom error numbers?**  
-SQL Server's `THROW` lets you assign error codes (50001+). Each validation gets a unique number, so logs tell you exactly what failed without reading stack traces.
-
----
-
-## Tech Stack
-
-- **SQL Server 2022** - Data warehouse
-- **Python 3.12** - Orchestration with type hints
-- **Docker Compose** - Multi-container coordination  
-- **sqlcmd** - SQL execution (subprocess)
-
----
-
-## Known Issues
-
-- No retry logic for transient connection failures
-- Error messages pass through SQL Server errors verbatim (could be friendlier)
-- CSV parsing breaks on commas inside quoted fields
-- Would benefit from logging to files (currently stdout only)
-
----
-
-## What's Mine vs Tutorial
-
-**From the tutorial (Data Baraa):**
-- SQL transformation logic (Bronze/Silver/Gold)
-- Star schema design for analytics
-- BULK INSERT patterns for CSV loading
-- Table definitions and relationships
-
-**What I built:**
-- Entire Python codebase (`etl/` directory):
-  - Protocol-based pipeline architecture
-  - Type-safe step execution with dataclasses
-  - Dynamic SQL validation generators  
-  - SqlCmdRunner with subprocess error handling
-- Complete Docker setup:
-  - Multi-container orchestration
-  - Health checks and service dependencies
-  - Volume mounting for data/SQL
-- Validation framework:
-  - Programmatic SQL generation
-  - Fail-fast checks at each layer
-  - Sample data output for debugging
-- Project organization and structure
-
----
-
-## Pipeline Execution
-
-### Running the Pipeline
-![Pipeline Running](./imgs/etl_runner.png)
-*Shows the complete execution flow with validation at each layer*
-
----
+- Airflow or Prefect for scheduling
+- dbt for transformations instead of stored procedures
+- Unit tests for the Python layer
+- Azure Data Factory version (cloud migration)
 
 ## Credits
 
-Based on [Data Baraa's SQL Data Warehouse tutorial series](https://www.youtube.com/@DataWithBaraa). Excellent resource for learning SQL and dimensional modeling fundamentals.
+Tutorial by [Data Baraa](https://www.youtube.com/@DataWithBaraa) - great resource for learning SQL and dimensional modeling.
 
 ---
 
-## License
-
-MIT License
-
----
-
-**⭐ Star if you found this useful!**
-
-*First data engineering project - feedback welcome*
+**First DE project. Feedback welcome.**
